@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GeoGlass Pro — Web GIS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--tx:#0b1b33;--tx2:#46566e;--acc:#0a84ff;--g:linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,.22))}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,sans-serif;color:var(--tx)}
+#map{position:fixed;inset:0;background:#cfe0f2}.leaflet-image-layer{image-rendering:pixelated}
+.glass{background:var(--g);backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);border:1px solid rgba(255,255,255,.65);border-radius:22px;box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),inset 0 -1px 3px rgba(255,255,255,.3),0 14px 40px rgba(15,30,70,.28);position:fixed;z-index:1000}
+#rib{top:12px;left:14px;right:14px;height:112px;padding:8px 14px}
+#top{display:flex;align-items:center;gap:6px}#brand{font-weight:700;font-size:15px;margin-right:12px}
+.tab{padding:5px 14px;border-radius:99px;cursor:pointer;font-weight:500}.tab.on{background:rgba(255,255,255,.7);box-shadow:inset 0 1px 1px #fff,0 2px 8px rgba(0,0,0,.12)}
+#grp{display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:2px}
+.btn{min-width:68px;padding:6px 8px;border-radius:16px;text-align:center;cursor:pointer;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.5);box-shadow:inset 0 1px 1px rgba(255,255,255,.8);font-size:11.5px;flex:none;transition:.15s}
+.btn:hover{background:rgba(255,255,255,.65);transform:translateY(-1px)}.btn b{display:block;font-size:22px;font-weight:400;line-height:30px}
+select,input[type=text],input[type=number],input[type=search]{width:100%;padding:6px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.55);color:var(--tx);font:inherit;outline:0}
+#cont{top:136px;left:14px;width:262px;bottom:50px;padding:14px;display:flex;flex-direction:column}
+#gp{top:136px;right:14px;width:340px;bottom:50px;padding:14px;display:flex;flex-direction:column}
+h4{font-size:14px;margin-bottom:8px}
+#layers,#tree{flex:1;overflow:auto;margin-top:8px}
+.ly{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:12px;cursor:pointer}.ly:hover{background:rgba(255,255,255,.4)}.ly.sel{background:rgba(255,255,255,.75);box-shadow:inset 0 1px 1px #fff}
+.ly span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ly i{font-style:normal;opacity:.55;font-size:12px}.ly i:hover{opacity:1}
+details{margin-bottom:4px}summary{cursor:pointer;font-weight:600;padding:6px 8px;border-radius:10px}summary:hover{background:rgba(255,255,255,.35)}
+.tl{padding:4px 8px 4px 22px;border-radius:9px;cursor:pointer}.tl:hover{background:var(--acc);color:#fff}
+#dlg{display:none;margin-top:8px;padding:12px;border-radius:16px;background:rgba(255,255,255,.5);overflow:auto;max-height:60%}
+#dlg label{display:block;margin:8px 0 3px;font-weight:600;font-size:12px}#dlg p{color:var(--tx2);font-size:12px}
+.go{margin-top:12px;width:100%;padding:8px;border:0;border-radius:99px;background:var(--acc);color:#fff;font-weight:600;cursor:pointer;box-shadow:inset 0 1px 1px rgba(255,255,255,.5)}
+#log{height:78px;overflow:auto;margin-top:8px;font-size:11.5px;color:var(--tx2);background:rgba(255,255,255,.3);border-radius:12px;padding:6px 9px}
+#attr{left:290px;right:366px;bottom:50px;height:210px;padding:12px;display:none;overflow:auto}
+#attr table{border-collapse:collapse;width:100%;font-size:12px}#attr th,#attr td{padding:4px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.6);white-space:nowrap}#attr th{position:sticky;top:0;background:rgba(255,255,255,.7)}
+#st{bottom:8px;left:14px;right:14px;height:34px;border-radius:99px;display:flex;align-items:center;padding:0 18px;gap:24px;font-size:12px}
+input[type=range]{width:100%}
+@media(max-width:900px){#gp{width:290px}#attr{left:14px;right:14px}}
+</style></head><body>
+<div id="map"></div>
+<div id="rib" class="glass"><div id="top"><span id="brand">◉ GeoGlass Pro</span></div><div id="grp"></div></div>
+<div id="cont" class="glass"><h4>Contents</h4><div id="layers"></div><div id="op" style="display:none"><label style="font-size:12px;font-weight:600">Transparency</label><input type="range" min="0" max="100" value="0" id="opr"></div></div>
+<div id="gp" class="glass"><h4>Geoprocessing</h4><input type="search" id="ts" placeholder="Search tools (buffer, NDVI, clip…)"><div id="tree"></div><div id="dlg"></div><div id="log">Ready.</div></div>
+<div id="attr" class="glass"></div>
+<div id="st" class="glass"><span id="co">Lat/Lon: —</span><span id="zm">Zoom: —</span><span id="sl">No layer selected</span></div>
+<input type="file" id="fi" accept=".json,.geojson,image/*" multiple hidden>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$$=s=>[...document.querySelectorAll(s)];
+const map=L.map("map",{zoomControl:false,doubleClickZoom:false}).setView([16.5,80.6],8);
+const BM={"OpenStreetMap":"https://tile.openstreetmap.org/{z}/{x}/{y}.png","Light":"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png","Dark":"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png","Imagery":"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}","Topographic":"https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"};
+let base=null,BASE="Light";const setBase=n=>{base&&map.removeLayer(base);base=L.tileLayer(BM[n],{maxZoom:19,attribution:"© OSM / CARTO / Esri"}).addTo(map);base.bringToBack()};setBase(BASE);
+map.on("mousemove",e=>$("#co").textContent="Lat/Lon: "+e.latlng.lat.toFixed(5)+", "+e.latlng.lng.toFixed(5));
+map.on("zoomend",()=>$("#zm").textContent="Zoom: "+map.getZoom());map.fire("zoomend");
+const log=m=>{const l=$("#log");l.innerHTML+="<br>"+new Date().toLocaleTimeString()+" — "+m;l.scrollTop=1e9};
+/* layers */
+let LY=[],sel=null,uid=0;const PAL=["#0a84ff","#ff375f","#30d158","#ff9f0a","#bf5af2","#64d2ff"];
+const fc=a=>turf.featureCollection(a.filter(Boolean));
+function addVector(name,gj,quiet){const col=PAL[uid%6],l={id:++uid,name,type:"v",gj,col,vis:true};
+ l.lyr=L.geoJSON(gj,{style:{color:col,weight:2,fillOpacity:.25},pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:5,color:"#fff",weight:1.5,fillColor:col,fillOpacity:.95}),onEachFeature:(f,y)=>y.bindPopup(()=>"<b>"+f.geometry.type+"</b><br>"+Object.entries(f.properties||{}).map(([k,v])=>k+": "+(typeof v=="number"?+v.toFixed(4):v)).join("<br>"))}).addTo(map);
+ LY.push(l);select(l);if(!quiet)log("Created vector layer “"+name+"” ("+gj.features.length+" features)");return l}
+function addRaster(name,cv,bounds,quiet){const l={id:++uid,name,type:"r",cv,bounds,vis:true};l.lyr=L.imageOverlay(cv.toDataURL(),bounds,{opacity:1}).addTo(map);LY.push(l);select(l);if(!quiet)log("Created raster layer “"+name+"” ("+cv.width+"×"+cv.height+")");return l}
+function select(l){sel=l;draw();$("#sl").textContent=l?l.name+(l.type=="v"?" · "+l.gj.features.length+" features":" · "+l.cv.width+"×"+l.cv.height+" px"):"No layer selected";$("#op").style.display=l?"block":"none";if($("#attr").style.display=="block")table()}
+function draw(){$("#layers").innerHTML="";[...LY].reverse().forEach(l=>{const d=document.createElement("div");d.className="ly"+(l===sel?" sel":"");
+ d.innerHTML='<input type=checkbox '+(l.vis?"checked":"")+'><span>'+(l.type=="v"?'<b style="color:'+l.col+'">●</b> ':"▦ ")+l.name+'</span><i title=Zoom>⌖</i><i title=Remove>✕</i>';
+ d.onclick=()=>select(l);const [c,z,x]=d.querySelectorAll("input,i");c.onclick=e=>{e.stopPropagation();l.vis=c.checked;c.checked?l.lyr.addTo(map):map.removeLayer(l.lyr)};
+ z.onclick=e=>{e.stopPropagation();zoomTo(l)};x.onclick=e=>{e.stopPropagation();map.removeLayer(l.lyr);LY=LY.filter(q=>q!==l);select(sel===l?LY[LY.length-1]||null:sel)};$("#layers").append(d)})}
+const zoomTo=l=>{try{map.fitBounds(l.type=="v"?l.lyr.getBounds():l.bounds,{padding:[60,60]})}catch(e){}};
+$("#opr").oninput=e=>{if(!sel)return;const o=1-e.target.value/100;sel.type=="r"?sel.lyr.setOpacity(o):sel.lyr.setStyle({opacity:o,fillOpacity:.25*o})};
+/* raster helpers */
+const mk=(w,h,fn)=>{const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d"),i=x.createImageData(w,h);fn(i.data,w,h);x.putImageData(i,0,0);return c};
+const imgd=l=>l.cv.getContext("2d").getImageData(0,0,l.cv.width,l.cv.height);
+const gry=l=>{const d=imgd(l).data,g=new Float32Array(d.length/4);for(let i=0;i<g.length;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];return g};
+const ST=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+const ramp=t=>{t=Math.max(0,Math.min(1,t))*4;const i=Math.min(3,t|0),f=t-i,a=ST[i],b=ST[i+1];return a.map((v,k)=>v+(b[k]-v)*f)};
+const paint=(a,w,h,rp,mn,mx)=>{if(mn==null){mn=1e12;mx=-1e12;for(const v of a){if(v<mn)mn=v;if(v>mx)mx=v}}const k=mx-mn||1;return mk(w,h,o=>{for(let j=0;j<a.length;j++){const t=(a[j]-mn)/k,c=rp?ramp(t):[t*255,t*255,t*255];o[j*4]=c[0];o[j*4+1]=c[1];o[j*4+2]=c[2];o[j*4+3]=255}})};
+const rop=(l,fn)=>{const s=imgd(l).data;return mk(l.cv.width,l.cv.height,o=>{for(let i=0;i<o.length;i+=4){const r=fn(s[i],s[i+1],s[i+2]);o[i]=r[0];o[i+1]=r[1];o[i+2]=r[2];o[i+3]=s[i+3]}})};
+const conv=(g,w,h,k)=>{const o=new Float32Array(g.length);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let s=0,n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++)s+=g[(y+j)*w+x+i]*k[n++];o[y*w+x]=s}return o};
+const KX=[-1,0,1,-2,0,2,-1,0,1],KY=[-1,-2,-1,0,0,0,1,2,1];
+const cc=(l,k)=>{const s=imgd(l).data,w=l.cv.width,h=l.cv.height;return mk(w,h,o=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){const p=(y*w+x)*4;for(let c=0;c<3;c++){let v=0,n=0;for(let j=-1;j<=1;j++)for(let i=-1;i<=1;i++){const xx=Math.min(w-1,Math.max(0,x+i)),yy=Math.min(h-1,Math.max(0,y+j));v+=s[(yy*w+xx)*4+c]*k[n++]}o[p+c]=v}o[p+3]=255}})};
+const ext=l=>[l.bounds[0][1],l.bounds[0][0],l.bounds[1][1],l.bounds[1][0]]; // W,S,E,N
+const px2ll=(l,x,y)=>{const [W,S,E,N]=ext(l);return [W+(x+.5)/l.cv.width*(E-W),N-(y+.5)/l.cv.height*(N-S)]};
+/* tools */
+const TOOLS=[];const T=(cat,name,params,run,desc="")=>TOOLS.push({cat,name,params,run,desc});
+const polys=l=>l.gj.features.filter(f=>/Polygon/.test(f.geometry.type)),pts=l=>l.gj.features.filter(f=>f.geometry.type=="Point");
+const uni=a=>a.reduce((x,y)=>turf.union(x,y));
+const mapBox=()=>{const b=map.getBounds();return [b.getWest(),b.getSouth(),b.getEast(),b.getNorth()]};
+const IN=["in","v","Input features"],IR=["in","r","Input raster"];
+const VA="Vector · Analysis",VM="Vector · Management",RA="Raster · Spatial Analyst",RI="Raster · Image Analyst";
+T(VA,"Buffer",[IN,["d","n","Distance",10],["u","s","Units",0,["kilometers","meters","miles"]]],p=>fc(p.in.gj.features.map(f=>turf.buffer(f,p.d,{units:p.u}))),"Creates buffer polygons around features.");
+T(VA,"Intersect",[["a","v","Input A (polygons)"],["b","v","Input B (polygons)"]],p=>{const o=[];polys(p.a).forEach(a=>polys(p.b).forEach(b=>{const i=turf.intersect(a,b);if(i){i.properties={...a.properties,...b.properties};o.push(i)}}));return fc(o)},"Overlap of two polygon layers.");
+T(VA,"Clip",[IN,["c","v","Clip polygons"]],p=>{const u=uni(polys(p.c));return fc(p.in.gj.features.map(f=>{const r=f.geometry.type=="Point"?(turf.booleanPointInPolygon(f,u)?f:null):turf.intersect(f,u);if(r)r.properties=f.properties;return r}))},"Cuts input features to the clip boundary.");
+T(VA,"Erase",[["in","v","Input polygons"],["c","v","Erase polygons"]],p=>{const u=uni(polys(p.c));return fc(polys(p.in).map(f=>{const d=turf.difference(f,u);if(d)d.properties=f.properties;return d}))},"Removes the overlap with the erase polygons.");
+T(VA,"Union (merge)",[["a","v","Input A"],["b","v","Input B"]],p=>fc([uni([...polys(p.a),...polys(p.b)])]),"Merges two polygon layers into one geometry.");
+T(VA,"Summarize Within",[["g","v","Polygons"],["p","v","Points"]],p=>fc(polys(p.g).map(g=>{g.properties={...g.properties,POINT_COUNT:turf.pointsWithinPolygon(fc(pts(p.p)),g).features.length};return g})),"Counts points inside each polygon.");
+T(VA,"Near",[["in","v","Input features"],["n","v","Near features"]],p=>{const cs=fc(p.n.gj.features.map(f=>turf.centroid(f)));return fc(p.in.gj.features.map(f=>{const n=turf.nearestPoint(turf.centroid(f),cs);f.properties={...f.properties,NEAR_FID:n.properties.featureIndex,NEAR_DIST_KM:n.properties.distanceToPoint};return f}))},"Adds distance to the nearest feature.");
+T(VM,"Dissolve",[["in","v","Input polygons"]],p=>fc([uni(polys(p.in))]),"Merges all polygons into one.");
+T(VM,"Feature To Point",[IN],p=>fc(p.in.gj.features.map(f=>turf.centroid(f,{properties:f.properties}))),"Centroid of each feature.");
+T(VM,"Feature Vertices To Points",[IN],p=>turf.explode(p.in.gj));
+T(VM,"Polygon To Line",[["in","v","Input polygons"]],p=>fc(polys(p.in).map(f=>turf.polygonToLine(f))));
+T(VM,"Simplify",[IN,["t","n","Tolerance (deg)",.01]],p=>turf.simplify(p.in.gj,{tolerance:p.t,highQuality:true,mutate:false}));
+T(VM,"Calculate Geometry",[IN],p=>fc(p.in.gj.features.map(f=>{const g=f.geometry.type;f.properties={...f.properties};if(/Polygon/.test(g))f.properties.AREA_KM2=turf.area(f)/1e6;if(/Line/.test(g))f.properties.LENGTH_KM=turf.length(f);return f})),"Adds area (km²) or length (km).");
+T(VM,"Minimum Bounding Envelope",[IN],p=>fc([turf.bboxPolygon(turf.bbox(p.in.gj))]));
+T(VM,"Convex Hull",[IN],p=>fc([turf.convex(p.in.gj)]));
+T(VM,"Concave Hull",[["in","v","Input points"],["m","n","Max edge (km)",60]],p=>fc([turf.concave(fc(pts(p.in)),{maxEdge:p.m})]));
+T(VM,"Create Fishnet (map extent)",[["k","n","Cell size (km)",25],["t","s","Type",0,["square","hex"]]],p=>p.t=="hex"?turf.hexGrid(mapBox(),p.k,{units:"kilometers"}):turf.squareGrid(mapBox(),p.k,{units:"kilometers"}));
+T(VM,"Create Random Points (map extent)",[["n","n","Count",100]],p=>{const r=turf.randomPoint(p.n,{bbox:mapBox()});r.features.forEach((f,i)=>f.properties={id:i+1,value:Math.round(Math.random()*100)});return r});
+T("Vector · Proximity","Create Thiessen Polygons",[["in","v","Input points"]],p=>fc(turf.voronoi(fc(pts(p.in)),{bbox:turf.bbox(p.in.gj)}).features),"Voronoi polygons.");
+T("Vector · Surfaces","Create TIN",[["in","v","Input points"]],p=>turf.tin(fc(pts(p.in)),"value"),"Delaunay triangulation.");
+T("Vector · Surfaces","IDW Interpolation",[["in","v","Points (field: value)"],["k","n","Cell size (km)",15],["w","n","Power",2]],p=>turf.interpolate(fc(pts(p.in)),p.k,{gridType:"square",property:"value",units:"kilometers",weight:p.w}),"Inverse-distance-weighted surface as a grid.");
+T("Vector · Statistics","Summary Statistics (value)",[["in","v","Input"]],p=>{const v=p.in.gj.features.map(f=>+f.properties?.value).filter(isFinite);if(!v.length)return "No numeric 'value' field.";const m=v.reduce((a,b)=>a+b)/v.length;return "COUNT "+v.length+" · MIN "+Math.min(...v)+" · MAX "+Math.max(...v)+" · MEAN "+m.toFixed(2)+" · STD "+Math.sqrt(v.reduce((a,b)=>a+(b-m)**2,0)/v.length).toFixed(2)});
+T(RA,"Hillshade",[IR,["z","n","Z-factor",.05]],p=>{const g=gry(p.in),w=p.in.cv.width,h=p.in.cv.height,dx=conv(g,w,h,KX),dy=conv(g,w,h,KY),o=new Float32Array(g.length);for(let i=0;i<o.length;i++){const sx=dx[i]/8*p.z,sy=dy[i]/8*p.z,s=Math.atan(Math.hypot(sx,sy)),a=Math.atan2(sy,-sx);o[i]=Math.max(0,Math.cos(Math.PI/4)*Math.cos(s)+Math.sin(Math.PI/4)*Math.sin(s)*Math.cos(Math.PI*.75-a))}return paint(o,w,h,false,0,1)},"Illumination from azimuth 315°, altitude 45°. Uses pixel brightness as elevation.");
+T(RA,"Slope",[IR,["z","n","Z-factor",.05]],p=>{const g=gry(p.in),w=p.in.cv.width,h=p.in.cv.height,dx=conv(g,w,h,KX),dy=conv(g,w,h,KY);return paint(dx.map((v,i)=>Math.atan(Math.hypot(v,dy[i])/8*p.z)*57.3),w,h,true)},"Slope in degrees from pixel brightness.");
+T(RA,"Raster Calculator (R,G,B)",[IR,["e","t","Expression","(G-R)/(G+R+1e-6)"]],p=>{const f=new Function("R","G","B","return "+p.e),d=imgd(p.in).data,a=new Float32Array(d.length/4);for(let i=0;i<a.length;i++)a[i]=f(d[i*4],d[i*4+1],d[i*4+2]);return paint(a,p.in.cv.width,p.in.cv.height,true)},"Map algebra using band values R, G, B.");
+T(RA,"Reclassify (equal interval)",[IR,["n","n","Classes",5]],p=>paint(gry(p.in).map(v=>Math.min(p.n-1,Math.floor(v/256*p.n))),p.in.cv.width,p.in.cv.height,true));
+T(RA,"Zonal Statistics",[["z","v","Zone polygons"],["r","r","Value raster"]],p=>{const g=gry(p.r),w=p.r.cv.width,h=p.r.cv.height,st=Math.max(1,w/100|0);return fc(polys(p.z).map(f=>{let s=0,n=0,mn=1e9,mx=-1e9;for(let y=0;y<h;y+=st)for(let x=0;x<w;x+=st)if(turf.booleanPointInPolygon(turf.point(px2ll(p.r,x,y)),f)){const v=g[y*w+x];s+=v;n++;mn=Math.min(mn,v);mx=Math.max(mx,v)}f.properties={...f.properties,PIXELS:n,MEAN:n?+(s/n).toFixed(2):null,MIN:n?+mn.toFixed(1):null,MAX:n?+mx.toFixed(1):null};return f}))},"Mean/min/max pixel value per polygon.");
+T(RA,"Extract by Mask",[IR,["m","v","Mask polygons"]],p=>{const m=uni(polys(p.m)),s=imgd(p.in).data,w=p.in.cv.width,h=p.in.cv.height;return mk(w,h,o=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(turf.booleanPointInPolygon(turf.point(px2ll(p.in,x,y)),m)){o[i]=s[i];o[i+1]=s[i+1];o[i+2]=s[i+2];o[i+3]=255}}})},"Keeps pixels inside the mask polygons.");
+T("Raster · Conversion","Raster To Point",[IR,["s","n","Sample step (px)",12]],p=>{const g=gry(p.in),w=p.in.cv.width,h=p.in.cv.height,o=[];for(let y=0;y<h;y+=p.s)for(let x=0;x<w;x+=p.s)o.push(turf.point(px2ll(p.in,x,y),{value:Math.round(g[y*w+x])}));return fc(o)});
+T(RI,"Grayscale",[IR],p=>rop(p.in,(r,g,b)=>{const v=.299*r+.587*g+.114*b;return [v,v,v]}));
+T(RI,"Invert (Negative)",[IR],p=>rop(p.in,(r,g,b)=>[255-r,255-g,255-b]));
+T(RI,"Brightness / Contrast",[IR,["b","n","Brightness (−100…100)",20],["c","n","Contrast (−100…100)",30]],p=>{const f=(259*(p.c+255))/(255*(259-p.c));return rop(p.in,(r,g,b)=>[r,g,b].map(v=>f*(v-128)+128+p.b*2.55))});
+T(RI,"Contrast Stretch",[IR],p=>{const d=imgd(p.in).data,mn=[255,255,255],mx=[0,0,0];for(let i=0;i<d.length;i+=4)for(let c=0;c<3;c++){mn[c]=Math.min(mn[c],d[i+c]);mx[c]=Math.max(mx[c],d[i+c])}return rop(p.in,(r,g,b)=>[r,g,b].map((v,c)=>(v-mn[c])/(mx[c]-mn[c]||1)*255))},"Linear min–max stretch per band.");
+T(RI,"Histogram Equalization",[IR],p=>{const g=gry(p.in),H=new Array(256).fill(0);g.forEach(v=>H[Math.min(255,v|0)]++);let c=0;const L=H.map(n=>(c+=n)/g.length*255);return paint(g.map(v=>L[Math.min(255,v|0)]),p.in.cv.width,p.in.cv.height,false,0,255)});
+T(RI,"Threshold (Binary)",[IR,["t","n","Threshold (0–255)",128]],p=>rop(p.in,(r,g,b)=>{const v=.299*r+.587*g+.114*b>p.t?255:0;return [v,v,v]}));
+T(RI,"Gaussian Blur",[IR,["r","n","Radius (px)",3]],p=>{const c=document.createElement("canvas");c.width=p.in.cv.width;c.height=p.in.cv.height;const x=c.getContext("2d");x.filter="blur("+p.r+"px)";x.drawImage(p.in.cv,0,0);return c},"Uses canvas blur (Chrome, Edge, Firefox).");
+T(RI,"Sharpen",[IR],p=>cc(p.in,[0,-1,0,-1,5,-1,0,-1,0]));
+T(RI,"Edge Detection (Sobel)",[IR],p=>{const g=gry(p.in),w=p.in.cv.width,h=p.in.cv.height,a=conv(g,w,h,KX),b=conv(g,w,h,KY);return paint(a.map((v,i)=>Math.hypot(v,b[i])),w,h,false)});
+T(RI,"Emboss",[IR],p=>cc(p.in,[-2,-1,0,-1,1,1,0,1,2]));
+T(RI,"Vegetation Index (VARI)",[IR],p=>{const d=imgd(p.in).data,a=new Float32Array(d.length/4);for(let i=0;i<a.length;i++){const r=d[i*4],g=d[i*4+1],b=d[i*4+2];a[i]=Math.max(-1,Math.min(1,(g-r)/(g+r-b+1e-6)))}return paint(a,p.in.cv.width,p.in.cv.height,true,-1,1)},"(G−R)/(G+R−B): a visible-band substitute for NDVI.");
+T(RI,"Unsupervised Classification (K-means)",[IR,["k","n","Classes",5]],p=>{const s=imgd(p.in).data,n=s.length/4,K=p.k,C=[];for(let k=0;k<K;k++){const i=(Math.random()*n|0)*4;C.push([s[i],s[i+1],s[i+2]])}const near=i=>{let b=0,bd=1e12;for(let k=0;k<K;k++){const d=(s[i*4]-C[k][0])**2+(s[i*4+1]-C[k][1])**2+(s[i*4+2]-C[k][2])**2;if(d<bd){bd=d;b=k}}return b};for(let it=0;it<10;it++){const S=C.map(()=>[0,0,0,0]);for(let i=0;i<n;i+=3){const b=near(i);S[b][0]+=s[i*4];S[b][1]+=s[i*4+1];S[b][2]+=s[i*4+2];S[b][3]++}S.forEach((q,k)=>{if(q[3])C[k]=[q[0]/q[3],q[1]/q[3],q[2]/q[3]]})}return mk(p.in.cv.width,p.in.cv.height,o=>{for(let i=0;i<n;i++){const c=ramp(near(i)/(K-1||1));o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255}})});
+T(RI,"Colorize (Color Ramp)",[IR],p=>paint(gry(p.in),p.in.cv.width,p.in.cv.height,true));
+T(RI,"Resample",[IR,["f","n","Scale factor",.5]],p=>{const c=document.createElement("canvas");c.width=Math.max(2,p.in.cv.width*p.f|0);c.height=Math.max(2,p.in.cv.height*p.f|0);c.getContext("2d").drawImage(p.in.cv,0,0,c.width,c.height);return c});
+T(RI,"Raster Statistics",[IR],p=>{const d=imgd(p.in).data,n=d.length/4;return ["R","G","B"].map((nm,c)=>{let s=0,q=0,mn=255,mx=0;for(let i=0;i<n;i++){const v=d[i*4+c];s+=v;q+=v*v;mn=Math.min(mn,v);mx=Math.max(mx,v)}const m=s/n;return nm+": min "+mn+" max "+mx+" mean "+m.toFixed(1)+" σ "+Math.sqrt(q/n-m*m).toFixed(1)}).join(" | ")});
+/* dialog */
+function tree(q=""){const t=$("#tree");t.innerHTML="";const cats={};TOOLS.filter(x=>(x.name+x.cat).toLowerCase().includes(q.toLowerCase())).forEach(x=>(cats[x.cat]??=[]).push(x));
+ Object.entries(cats).forEach(([c,a])=>{const d=document.createElement("details");d.open=!!q||c==VA;d.innerHTML="<summary>"+c+" ("+a.length+")</summary>";a.forEach(x=>{const e=document.createElement("div");e.className="tl";e.textContent=x.name;e.onclick=()=>openTool(x);d.append(e)});t.append(d)})}
+$("#ts").oninput=e=>tree(e.target.value);tree();
+const lopts=t=>LY.filter(l=>l.type==t).map(l=>'<option value="'+l.id+'" '+(l===sel?"selected":"")+">"+l.name+"</option>").join("")||"<option value=''>— none —</option>";
+function openTool(x){const d=$("#dlg");d.style.display="block";$("#tree").style.flex="0 0 90px";
+ d.innerHTML="<h4>"+x.name+"</h4><p>"+(x.desc||x.cat)+"</p>"+x.params.map(([k,t,lb,df,op])=>"<label>"+lb+"</label>"+(t=="v"||t=="r"?"<select data-k="+k+" data-t="+t+">"+lopts(t)+"</select>":t=="s"?"<select data-k="+k+" data-t=s>"+op.map((o,i)=>"<option value="+i+">"+o+"</option>").join("")+"</select>":"<input data-k="+k+" data-t="+t+' type="'+(t=="n"?"number":"text")+'" step=any value="'+df+'">')).join("")+"<label>Output name</label><input type=text id=on value='"+x.name.split(" (")[0].replace(/ /g,"_")+"_out'><button class=go>Run</button>";
+ d.querySelector(".go").onclick=()=>run(x)}
+function run(x){const p={};let rb=null;for(const e of $$$("#dlg [data-k]")){const t=e.dataset.t,k=e.dataset.k;if(t=="v"||t=="r"){const l=LY.find(q=>q.id==e.value);if(!l)return log("⚠ "+x.name+": choose an input layer.");p[k]=l;if(t=="r"&&!rb)rb=l.bounds}else if(t=="s")p[k]=x.params.find(q=>q[0]==k)[4][+e.value];else p[k]=t=="n"?+e.value:e.value}
+ const name=$("#on").value||"output";log("▶ Running "+x.name+"…");setTimeout(()=>{try{const t0=performance.now(),r=x.run(p),dt=((performance.now()-t0)/1000).toFixed(2);
+  if(typeof r=="string")log("✔ "+r);else if(r instanceof HTMLCanvasElement){addRaster(name,r,rb,1);log("✔ "+x.name+" completed in "+dt+" s")}else{if(!r||!r.features||!r.features.length)return log("⚠ No output features were produced.");addVector(name,r,1);log("✔ "+x.name+" completed in "+dt+" s — "+r.features.length+" features")}}catch(e){log("✖ Error: "+e.message)}},30)}
+const byName=n=>TOOLS.find(t=>t.name.startsWith(n));
+/* sketching */
+let mode=null,dp=[],prev=null,sk=null;
+function setMode(m){mode=m;dp=[];prev&&map.removeLayer(prev);prev=null;map.getContainer().style.cursor=m?"crosshair":"";log(m?"Sketch: click to add vertices; double-click or Enter to finish.":"Sketch stopped.")}
+const toSk=f=>{if(!sk||!LY.includes(sk))sk=addVector("Sketch",fc([]),1);f.properties.id=sk.gj.features.length+1;sk.gj.features.push(f);sk.lyr.addData(f);select(sk)};
+function finish(){if(!mode)return;let g=null;if(mode=="line"&&dp.length>1)g={type:"LineString",coordinates:dp.map(q=>[q.lng,q.lat])};if(mode=="poly"&&dp.length>2)g={type:"Polygon",coordinates:[[...dp,dp[0]].map(q=>[q.lng,q.lat])]};
+ if(g){const f=turf.feature(g,{});toSk(f);log(mode=="line"?"Line length: "+turf.length(f).toFixed(3)+" km":"Polygon area: "+(turf.area(f)/1e6).toFixed(3)+" km²")}
+ dp=[];prev&&map.removeLayer(prev);prev=null}
+map.on("click",e=>{if(!mode)return;if(mode=="point")return toSk(turf.point([e.latlng.lng,e.latlng.lat],{}));dp.push(e.latlng);prev&&map.removeLayer(prev);prev=(mode=="poly"?L.polygon:L.polyline)(dp,{color:"#ff375f",dashArray:"5 5"}).addTo(map)});
+map.on("dblclick",()=>{if(mode)finish()});addEventListener("keydown",e=>{if(e.target.tagName=="INPUT")return;if(e.key=="Enter")finish();if(e.key=="Escape")setMode(null)});
+/* table / io */
+function table(){const a=$("#attr");if(!sel)return;a.style.display="block";if(sel.type=="r"){a.innerHTML="<h4>"+sel.name+"</h4><p>Raster · "+sel.cv.width+" × "+sel.cv.height+" px · RGB · extent "+sel.bounds.map(b=>b.map(v=>v.toFixed(3))).join(" → ")+"</p>";return}
+ const f=sel.gj.features.slice(0,200),ks=[...new Set(f.flatMap(x=>Object.keys(x.properties||{})))];
+ a.innerHTML="<h4>"+sel.name+" — Attribute Table ("+sel.gj.features.length+" records)</h4><table><tr><th>#</th><th>Shape</th>"+ks.map(k=>"<th>"+k+"</th>").join("")+"</tr>"+f.map((x,i)=>"<tr><td>"+(i+1)+"</td><td>"+x.geometry.type+"</td>"+ks.map(k=>{const v=x.properties?.[k];return "<td>"+(typeof v=="number"?+v.toFixed(4):v??"")+"</td>"}).join("")+"</tr>").join("")+"</table>"}
+const dl=(name,url)=>{const a=document.createElement("a");a.href=url;a.download=name;a.click()};
+function files(fl){[...fl].forEach(f=>{const r=new FileReader();if(f.type.startsWith("image/")){r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=im.width*s;c.height=im.height*s;c.getContext("2d").drawImage(im,0,0,c.width,c.height);const b=map.getBounds(),cx=map.getCenter(),hl=(b.getNorth()-b.getSouth())*.3,hw=hl*(c.width/c.height)/Math.cos(cx.lat*Math.PI/180),bd=[[cx.lat-hl,cx.lng-hw],[cx.lat+hl,cx.lng+hw]];addRaster(f.name,c,bd);map.fitBounds(bd);log("Image placed at map centre; georeferencing is approximate.")};im.src=r.result};r.readAsDataURL(f)}else{r.onload=()=>{try{let g=JSON.parse(r.result);if(g.type=="Feature")g=fc([g]);zoomTo(addVector(f.name.replace(/\.\w+$/,""),g))}catch(e){log("✖ Could not read "+f.name+": "+e.message)}};r.readAsText(f)}})}
+$("#fi").onchange=e=>files(e.target.files);
+map.getContainer().ondragover=e=>e.preventDefault();map.getContainer().ondrop=e=>{e.preventDefault();files(e.dataTransfer.files)};
+/* ribbon */
+const tg=id=>{const e=$(id);e.style.display=e.style.display=="none"?"flex":"none"};
+const tool=n=>()=>{$("#gp").style.display="flex";openTool(byName(n))};
+const TABS={
+ "Map":[["🗺","Basemap",()=>{const n=Object.keys(BM);BASE=n[(n.indexOf(BASE)+1)%n.length];setBase(BASE);log("Basemap: "+BASE)}],["📂","Add Data",()=>$("#fi").click()],["＋","Zoom In",()=>map.zoomIn()],["－","Zoom Out",()=>map.zoomOut()],["⌖","Zoom to Layer",()=>sel&&zoomTo(sel)]],
+ "Insert":[["•","Point",()=>setMode("point")],["〰","Line",()=>setMode("line")],["⬠","Polygon",()=>setMode("poly")],["✔","Finish",finish],["⏹","Stop",()=>setMode(null)]],
+ "Analysis":[["🧰","Toolbox",()=>$("#gp").style.display="flex"],["◎","Buffer",tool("Buffer")],["✂","Clip",tool("Clip")],["⋂","Intersect",tool("Intersect")],["⬡","Dissolve",tool("Dissolve")],["▦","Fishnet",tool("Create Fishnet")],["Σ","Zonal Stats",tool("Zonal Statistics")],["⬢","Thiessen",tool("Create Thiessen")],["≈","IDW",tool("IDW")]],
+ "Imagery":[["◐","Grayscale",tool("Grayscale")],["◑","Contrast",tool("Brightness")],["⛰","Hillshade",tool("Hillshade")],["📐","Slope",tool("Slope")],["🌿","Vegetation",tool("Vegetation")],["▤","Reclassify",tool("Reclassify")],["🎨","K-means",tool("Unsupervised")],["∿","Edges",tool("Edge")],["fx","Calculator",tool("Raster Calculator")],["📊","Statistics",tool("Raster Statistics")]],
+ "View":[["▤","Attribute Table",table],["☰","Contents",()=>tg("#cont")],["🧰","Geoprocessing",()=>tg("#gp")],["✕","Close Table",()=>$("#attr").style.display="none"]],
+ "Share":[["⇩","Export GeoJSON",()=>sel&&sel.type=="v"?dl(sel.name+".geojson","data:application/json,"+encodeURIComponent(JSON.stringify(sel.gj))):log("Select a vector layer to export.")],["🖼","Export PNG",()=>sel&&sel.type=="r"?dl(sel.name+".png",sel.cv.toDataURL()):log("Select a raster layer to export.")]]};
+Object.keys(TABS).forEach((n,i)=>{const t=document.createElement("span");t.className="tab"+(i?"":" on");t.textContent=n;t.onclick=()=>{$$$(".tab").forEach(x=>x.classList.remove("on"));t.classList.add("on");show(n)};$("#top").append(t)});
+function show(n){const g=$("#grp");g.innerHTML="";TABS[n].forEach(([i,l,f])=>{const b=document.createElement("div");b.className="btn";b.innerHTML="<b>"+i+"</b>"+l;b.onclick=f;g.append(b)})}show("Map");
+/* sample data */
+const bd=[[16,80],[17,81.2]];
+addRaster("Sample DEM",mk(260,220,(o,w,h)=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){const z=Math.sin(x/28)*Math.cos(y/34)+.6*Math.sin(x/11+y/15)+.3*Math.sin(y/7)+Math.exp(-(((x-170)**2+(y-90)**2)/1800))*2.2,v=(z+2)/5.5*255,i=(y*w+x)*4;o[i]=o[i+1]=o[i+2]=v;o[i+3]=255}}),bd,1);
+addVector("Study Area",fc([turf.polygon([[[80.15,16.25],[80.75,16.15],[81.0,16.5],[80.7,16.9],[80.2,16.75],[80.15,16.25]]],{name:"Zone A"}),turf.polygon([[[80.75,16.15],[81.1,16.2],[81.15,16.7],[81.0,16.5],[80.75,16.15]]],{name:"Zone B"})]),1);
+const rp=turf.randomPoint(60,{bbox:[80.05,16.05,81.1,16.95]});rp.features.forEach((f,i)=>f.properties={id:i+1,value:Math.round(Math.random()*100)});addVector("Sample Points",rp,1);
+select(LY[0]);log("Sample DEM, Study Area and Sample Points loaded. Drop GeoJSON or images on the map to add data.");
+</script></body></html>
